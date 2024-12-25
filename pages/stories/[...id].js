@@ -1,4 +1,5 @@
 import axios from "axios";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 
@@ -10,7 +11,15 @@ export default function Story() {
   useEffect(() => {
     if (!id) return;
     axios.get('/api/stories?id=' + id)
-      .then(res => setStory(res.data))
+      .then(res => {
+        if (res.data === "Undefined") {
+          setStory("Undefined");
+        } else if (res.data === "Locked") {
+          setStory("Locked");
+        } else {
+          setStory(res.data)
+        }
+      })
       .catch(error => console.error(error));
   }, [id]);
 
@@ -20,6 +29,26 @@ export default function Story() {
         <div className="flex flex-col items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-500 mb-4"></div>
           <p className="text-xl text-gray-600">Loading...</p>
+        </div>
+      </main>
+    );
+  } else if (story === "Undefined") {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-pink-100">
+        <div className="flex flex-col items-center justify-center">
+          <p className="text-center text-gray-500">
+            This story is not available.
+          </p>
+        </div>
+      </main>
+    );
+  } else if (story === "Locked") {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-pink-50 to-pink-100">
+        <div className="flex flex-col items-center justify-center">
+          <p className="text-center text-gray-500">
+            This story is currently locked.
+          </p>
         </div>
       </main>
     );
@@ -39,12 +68,11 @@ export default function Story() {
             {story.content}
           </p>
           <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => router.back()}
+            <Link href={"/story"}
               className="px-6 py-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition duration-200"
             >
               Go Back
-            </button>
+            </Link>
           </div>
         </div>
       </div>

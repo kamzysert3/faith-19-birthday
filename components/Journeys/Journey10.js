@@ -1,4 +1,4 @@
-export default function Journey10 ({ journey, reward }) {
+export default function Journey10 ({ journey, reward, progress }) {
     return (
         <div>
             <h1>Welcome to the Journey</h1>
