@@ -10,6 +10,7 @@ export default function Journey8({ journey, reward, progress }) {
     const [isUnlocking, setIsUnlocking] = useState(false);
     const [wind, setWind] = useState({ direction: 1, strength: 0 });
     const [blownOutCandles, setBlownOutCandles] = useState([]);
+    const [gameOver, setGameOver] = useState(false);
 
     const initializeLevel = () => {
         const candleCount = 4 + level;
@@ -21,8 +22,9 @@ export default function Journey8({ journey, reward, progress }) {
             position: index
         }));
         setCandles(newCandles.sort(() => Math.random() - 0.5));
-        setWind({ direction: Math.random() > 0.5 ? 1 : -1, strength: level * 0.2 });
-        setMatches(15); // Reset matches when initializing level
+        setWind({ direction: Math.random() > 0.5 ? 1 : -1, strength: level * 0.25 });
+        setMatches(3 * ((level + 2) - 1)); // Reset matches when initializing level
+        setGameOver(false);
     };
 
     useEffect(() => {
@@ -70,15 +72,19 @@ export default function Journey8({ journey, reward, progress }) {
                         });
                 } else {
                     setLevel(prev => prev + 1);
-                    setMatches(15);
                 }
+            } else {                
+                if ((matches - 1) === 0) setGameOver(true);
             }
         }, 500)
     };
 
     const protectCandle = (index) => {
         if (matches < 2) return; // Costs 2 matches to protect
-        setMatches(prev => prev - 2);
+        setMatches(prev => {
+            if (prev - 2 === 0) setGameOver(true);
+            return prev - 2
+        });
         setCandles(prev => prev.map((c, i) => 
             i === index ? { ...c, protected: true } : c
         ));
@@ -202,7 +208,7 @@ export default function Journey8({ journey, reward, progress }) {
 
             <div className="mt-6 text-center space-y-2">
                 <p className="text-sm text-gray-600">
-                    {matches === 0 ? (
+                    {gameOver ? (
                         <button 
                             onClick={() => initializeLevel()} 
                             className="px-4 py-2 bg-pink-400 text-white rounded-full"

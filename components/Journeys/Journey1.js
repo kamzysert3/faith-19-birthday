@@ -65,13 +65,13 @@ export default function Journey1({ journey, reward, progress }) {
     }, [solved, cards]);
 
     return (
-        <div className="p-4 w-full max-w-lg mx-auto">
+        <div className="p-4 max-w-lg mx-auto">
             <div className="grid grid-cols-4 gap-2 sm:gap-4">
                 {cards.map((card) => (
                     <div
                         key={card.id}
                         onClick={() => handleCardClick(card.id)}
-                        className={`aspect-square w-full flex items-center justify-center text-xl sm:text-3xl
+                        className={`aspect-square w-16 sm:w-14 flex items-center justify-center text-xl sm:text-3xl
                             ${flipped.includes(card.id) || solved.includes(card.id) 
                                 ? 'bg-white' 
                                 : 'bg-pink-500'

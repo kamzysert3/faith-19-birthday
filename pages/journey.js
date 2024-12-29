@@ -81,7 +81,7 @@ export default function Journey () {
     const JourneyComponent = journeyComponents[progressBar + 1];
     
     return (
-        <main className="min-h-screen flex flex-col p-3 justify-center items-center bg-gradient-to-b from-rose-100 to-pink-200 px-5 text-pink-800">
+        <main className="min-h-screen flex flex-col p-3 justify-center items-center bg-gradient-to-b from-rose-100 to-pink-200 px-5 text-pink-800 select-none">
             <Link href={'/'} className="text-xl bg-pink-500 p-3 rounded-full absolute top-5 left-5 text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
