@@ -17,8 +17,8 @@ export default function Home() {
               Happy Birthday Love
             </h1>
           </div>
-          <p className="mt-4 text-lg text-gray-700">
-            A journey filled with memories, love, and adventure.
+          <p className="mt-4 text-lg text-gray-700 italic">
+            🎉 Celebrate your birthday with this special gift
           </p>
         </div>
 
