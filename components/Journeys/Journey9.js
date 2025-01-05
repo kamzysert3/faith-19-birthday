@@ -2,472 +2,230 @@ import { useState, useEffect } from 'react';
 import { Unlock } from '@/lib/unlock';
 import Success from '../success';
 
-export default function Journey9({ journey, reward, progress }) {
-    const [grid, setGrid] = useState([]);
-    const [selected, setSelected] = useState(null);
-    const [score, setScore] = useState(0);
+export default function Journey8({ journey, reward, progress }) {
+    const [candles, setCandles] = useState([]);
+    const [matches, setMatches] = useState(15);
+    const [level, setLevel] = useState(1);
     const [isWon, setIsWon] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
-    const [switching, setSwitching] = useState(null);
-    const [matching, setMatching] = useState(new Set());
-    const [falling, setFalling] = useState(new Set());
-    const [chainMultiplier, setChainMultiplier] = useState(1);
-    const [moves, setMoves] = useState(15); // Add moves limit state
+    const [wind, setWind] = useState({ direction: 1, strength: 0 });
+    const [blownOutCandles, setBlownOutCandles] = useState([]);
     const [gameOver, setGameOver] = useState(false);
 
-    const GRID_SIZE = 6;
-    const REQUIRED_SCORE = 500;
-    const INITIAL_MOVES = 15;
-    const CANDIES = ['🎈', '🎁', '🎂', '🎉', '🎊', '🍰', '🎨', '🎭'];
+    const initializeLevel = () => {
+        const candleCount = 4 + level;
+        const newCandles = Array(candleCount).fill(null).map((_, index) => ({
+            id: index,
+            lit: false,
+            required: index < level + 2,
+            protected: false,
+            position: index
+        }));
+        setCandles(newCandles.sort(() => Math.random() - 0.5));
+        setWind({ direction: Math.random() > 0.5 ? 1 : -1, strength: level * 0.25 });
+        setMatches(3 * ((level + 2) - 1)); // Reset matches when initializing level
+        setGameOver(false);
+    };
 
     useEffect(() => {
-        initializeGrid();
-    }, []);
+        initializeLevel();
+    }, [level]);
 
-    const validateGrid = (grid) => {
-        // Check for any matches in the initial grid
-        for (let row = 0; row < GRID_SIZE; row++) {
-            for (let col = 0; col < GRID_SIZE - 2; col++) {
-                if (grid[row][col] === grid[row][col + 1] && 
-                    grid[row][col] === grid[row][col + 2]) {
-                    return false;
-                }
-            }
-        }
+    const lightCandle = (candleIndex) => {
+        if (matches <= 0) return;
+
+        setMatches(prev => prev - 1);
+        const newCandles = [...candles];
         
-        for (let row = 0; row < GRID_SIZE - 2; row++) {
-            for (let col = 0; col < GRID_SIZE; col++) {
-                if (grid[row][col] === grid[row + 1][col] && 
-                    grid[row][col] === grid[row + 2][col]) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    };
-
-    // Add new helper function to check if a move creates a match
-    const checkValidMove = (board, row1, col1, row2, col2) => {
-        if (!board || !board[row1] || !board[row2]) return false;
+        // Light selected candle
+        newCandles[candleIndex].lit = true;
         
-        const tempBoard = board.map(row => [...row]);
-        const temp = tempBoard[row1][col1];
-        tempBoard[row1][col1] = tempBoard[row2][col2];
-        tempBoard[row2][col2] = temp;
-        
-        return hasMatch(tempBoard);
-    };
-
-    // Add new function to check if any valid moves exist
-    const hasValidMoves = (board) => {
-        if (!board || board.length === 0) return false;
-
-        // Check horizontal swaps
-        for (let row = 0; row < GRID_SIZE; row++) {
-            if (!board[row]) continue;
-            for (let col = 0; col < GRID_SIZE - 1; col++) {
-                if (checkValidMove(board, row, col, row, col + 1)) {
-                    return true;
-                }
-            }
-        }
-        // Check vertical swaps
-        for (let row = 0; row < GRID_SIZE - 1; row++) {
-            if (!board[row] || !board[row + 1]) continue;
-            for (let col = 0; col < GRID_SIZE; col++) {
-                if (checkValidMove(board, row, col, row + 1, col)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    };
-
-    // Modify initializeGrid to include valid moves check
-    const initializeGrid = () => {
-        let newGrid;
-        do {
-            newGrid = Array(GRID_SIZE).fill().map(() =>
-                Array(GRID_SIZE).fill().map(() =>
-                    CANDIES[Math.floor(Math.random() * CANDIES.length)]
-                )
+        // Wind effects
+        if (Math.random() < wind.strength) {
+            // Wind can blow out nearby candles EXCEPT the one just lit
+            const affected = newCandles.filter(c => 
+                Math.abs(c.position - newCandles[candleIndex].position) <= 1 &&
+                c.lit &&
+                !c.protected &&
+                newCandles.indexOf(c) !== candleIndex  // Don't affect the candle being lit
             );
-        } while (!validateGrid(newGrid) || (newGrid.length > 0 && !hasValidMoves(newGrid)));
-        
-        setGrid(newGrid);
-        setMoves(INITIAL_MOVES);
-        setScore(0);
-        setGameOver(false);
-        setChainMultiplier(1);
-        setMatching(new Set());
-        setFalling(new Set());
-        setSwitching(null);
-    };
+            
+            // Show wind effect for affected candles
+            setBlownOutCandles(affected.map(c => c.id));
+            setTimeout(() => setBlownOutCandles([]), 1000);
 
-    // Add reshuffling function
-    const reshuffleBoard = () => {
-        if (moves <= 0 || gameOver) return;
-        let newGrid;
-        setMatching(new Set());
-        setFalling(new Set());
-        setSwitching(null);
-        
-        do {
-            newGrid = Array(GRID_SIZE).fill().map(() =>
-                Array(GRID_SIZE).fill().map(() =>
-                    CANDIES[Math.floor(Math.random() * CANDIES.length)]
-                )
-            );
-        } while (!validateGrid(newGrid) || !hasValidMoves(newGrid));
-
-        setTimeout(() => setGrid(newGrid), 2000);
-    };
-
-    const handleSelect = (row, col) => {
-        if (!selected) {
-            setSelected({ row, col });
-        } else {
-            // Check if adjacent
-            const isAdjacent = (
-                (Math.abs(selected.row - row) === 1 && selected.col === col) ||
-                (Math.abs(selected.col - col) === 1 && selected.row === row)
-            );
-
-            if (isAdjacent) {
-                swapCandies(selected.row, selected.col, row, col);
-            }
-            setSelected(null);
+            affected.forEach(c => c.lit = false);
         }
-    };
 
-    const swapCandies = (row1, col1, row2, col2) => {
-        if (moves <= 0 || gameOver) return;
-        
-        setSwitching({ 
-            from: { row: row1, col: col1 }, 
-            to: { row: row2, col: col2 } // Fix: removed col2 typo
-        });
+        setCandles(newCandles);
 
-        // Create temp grid and apply swap
-        const newGrid = grid.map(row => [...row]);
-        const temp = newGrid[row1][col1];
-        newGrid[row1][col1] = newGrid[row2][col2];
-        newGrid[row2][col2] = temp;
-
-        // Wait for animation to complete before updating grid
+        // Check win condition
         setTimeout(() => {
-            if (hasMatch(newGrid)) {
-                setGrid(newGrid);
-                setSwitching(null);
-                checkMatches(newGrid, true);
-            } else {
-                // Revert if no match
-                setSwitching(null);
-                setChainMultiplier(1);
+            const allRequired = newCandles.every(c => !c.required || c.lit);
+            if (allRequired) {
+                if (level >= 3) {
+                    setIsWon(true);
+                    setIsUnlocking(true);
+                    Unlock(progress, journey.rewardType, reward._id)
+                        .then(success => {
+                            if (success) setIsUnlocking(false);
+                        });
+                } else {
+                    setLevel(prev => prev + 1);
+                }
+            } else {                
+                if ((matches - 1) === 0) setGameOver(true);
             }
-        }, 300);
+        }, 500)
+    };
 
-        setMoves(prev => {
-            const newMoves = prev - 1;
-            if (newMoves <= 0 && score < REQUIRED_SCORE) {
-                setGameOver(true);
-            }
-            return newMoves;
+    const protectCandle = (index) => {
+        if (matches < 2) return; // Costs 2 matches to protect
+        setMatches(prev => {
+            if (prev - 2 === 0) setGameOver(true);
+            return prev - 2
         });
+        setCandles(prev => prev.map((c, i) => 
+            i === index ? { ...c, protected: true } : c
+        ));
     };
 
-    const hasMatch = (board) => {
-        // Check rows
-        for (let row = 0; row < GRID_SIZE; row++) {
-            for (let col = 0; col < GRID_SIZE - 2; col++) {
-                if (board[row][col] &&
-                    board[row][col] === board[row][col + 1] &&
-                    board[row][col] === board[row][col + 2]) {
-                    return true;
-                }
-            }
+    const handleCandle = (index) => {
+        // Handle both click and touch
+        if (matches <= 0) return;
+
+        // First click/tap lights the candle
+        if (!candles[index].lit) {
+            lightCandle(index);
+        } else if (!candles[index].protected) {
+            // Long press/right click to protect lit candles
+            protectCandle(index);
         }
-        // Check columns
-        for (let row = 0; row < GRID_SIZE - 2; row++) {
-            for (let col = 0; col < GRID_SIZE; col++) {
-                if (board[row][col] &&
-                    board[row][col] === board[row + 1][col] &&
-                    board[row][col] === board[row + 2][col]) {
-                    return true;
-                }
-            }
-        }
-        return false;
     };
 
-    const checkMatches = (currentGrid, isNewMatch = false) => {
-        let matches = new Set();
-        let matched = false;
-
-        // Check rows
-        for (let row = 0; row < GRID_SIZE; row++) {
-            for (let col = 0; col < GRID_SIZE - 2; col++) {
-                if (currentGrid[row][col] &&
-                    currentGrid[row][col] === currentGrid[row][col + 1] &&
-                    currentGrid[row][col] === currentGrid[row][col + 2]) {
-                    matches.add(`${row},${col}`);
-                    matches.add(`${row},${col + 1}`);
-                    matches.add(`${row},${col + 2}`);
-                    matched = true;
-                }
-            }
-        }
-
-        // Check columns
-        for (let row = 0; row < GRID_SIZE - 2; row++) {
-            for (let col = 0; col < GRID_SIZE; col++) {
-                if (currentGrid[row][col] &&
-                    currentGrid[row][col] === currentGrid[row + 1][col] &&
-                    currentGrid[row][col] === currentGrid[row + 2][col]) {
-                    matches.add(`${row},${col}`);
-                    matches.add(`${row + 1},${col}`);
-                    matches.add(`${row + 2},${col}`);
-                    matched = true;
-                }
-            }
-        }
-
-        if (matched) {
-            if (isNewMatch) {
-                setChainMultiplier(prev => prev + 0.5);
-            }
-
-            // Pre-calculate everything before starting animations
-            const newGrid = [...currentGrid];
-            const updatedColumns = new Set();
-            const fallingCandies = new Set();
-            const columnUpdates = {};
-
-            // Prepare all updates first
-            matches.forEach(pos => {
-                const [row, col] = pos.split(',').map(Number);
-                updatedColumns.add(col);
-                for (let r = row; r >= 0; r--) {
-                    fallingCandies.add(`${r},${col}`);
-                }
-            });
-
-            // Pre-calculate column updates
-            updatedColumns.forEach(col => {
-                columnUpdates[col] = {
-                    shifts: [],
-                    newCandies: []
-                };
-                
-                // Count matches in this column
-                let matchCount = 0;
-                for (let row = GRID_SIZE - 1; row >= 0; row--) {
-                    if (matches.has(`${row},${col}`)) {
-                        matchCount++;
-                    }
-                }
-
-                // Generate new candies first
-                for (let i = 0; i < matchCount; i++) {
-                    columnUpdates[col].newCandies.push(
-                        CANDIES[Math.floor(Math.random() * CANDIES.length)]
-                    );
-                }
-
-                // Calculate shifts
-                let shiftCount = 0;
-                for (let row = GRID_SIZE - 1; row >= 0; row--) {
-                    if (matches.has(`${row},${col}`)) {
-                        shiftCount++;
-                    } else if (shiftCount > 0) {
-                        columnUpdates[col].shifts.push({
-                            from: row,
-                            to: row + shiftCount
-                        });
-                    }
-                }
-            });
-
-            // Execute updates in sequence with proper timing
-            setMatching(matches);
-
-            // Update score and start falling animation
-            setTimeout(() => {
-                setScore(prev => {
-                    const matchPoints = matches.size * 10;
-                    const bonusPoints = Math.floor(matchPoints * chainMultiplier);
-                    const newScore = prev + bonusPoints;
-                    
-                    if (newScore >= REQUIRED_SCORE && !isWon) {
-                        setIsWon(true);
-                        setIsUnlocking(true);
-                        Unlock(progress, journey.rewardType, reward._id)
-                            .then(success => {
-                                if (success) setIsUnlocking(false);
-                            });
-                    }
-                    return newScore;
-                });
-
-                setFalling(fallingCandies);
-                
-                // Apply grid updates slightly before animation ends
-                setTimeout(() => {
-                    updatedColumns.forEach(col => {
-                        // Apply all updates simultaneously
-                        columnUpdates[col].shifts.forEach(({from, to}) => {
-                            newGrid[to][col] = currentGrid[from][col];
-                        });
-
-                        let newCandyIndex = 0;
-                        for (let row = 0; row < GRID_SIZE; row++) {
-                            if (matches.has(`${row},${col}`)) {
-                                newGrid[row][col] = columnUpdates[col].newCandies[newCandyIndex++];
-                            }
-                        }
-                    });
-
-                    // Update grid state before clearing animations
-                    setGrid(newGrid);
-                    
-                    // Clear animations slightly after grid update
-                    requestAnimationFrame(() => {
-                        setMatching(new Set());
-                        setFalling(new Set());
-                        
-                        // Check for new matches
-                        setTimeout(() => {
-                            if (hasMatch(newGrid)) {
-                                checkMatches(newGrid, true);
-                            } else {
-                                if (!hasValidMoves(newGrid)) {
-                                    // No valid moves available, reshuffle the board
-                                    reshuffleBoard();
-                                } else {
-                                    setChainMultiplier(1);
-                                }
-                            }
-                        }, 50);
-                    });
-                }, 200); // Reduced timing for smoother transitions
-            }, 200);
-        } else {
-            // Check for valid moves when no matches are found
-            if (!hasValidMoves(currentGrid)) {
-                reshuffleBoard();
-            }
-            setChainMultiplier(1);
-        }
+    const handleLongPress = (index) => {
+        if (!candles[index].lit || candles[index].protected) return;
+        protectCandle(index);
     };
 
     return (
-        <div className="flex flex-col items-center p-4 w-full max-w-lg mx-auto">
-            <div className="flex justify-between w-full mb-4">
-                <div className="text-xl">Score: {score < 500 ? score : 500}/{REQUIRED_SCORE}</div>
-                {chainMultiplier > 1 && (
-                    <div className="text-pink-500 font-bold animate-pulse">
-                        Combo x{chainMultiplier.toFixed(1)}
+        <div className="flex flex-col items-center p-4 w-full max-w-lg mx-auto select-none">
+            <div className="text-xl mb-4">Level {level} - Matches: {matches}</div>
+            
+            <div className="relative w-full bg-gradient-to-b from-pink-50 to-pink-100 p-6 rounded-lg">
+                {/* Wind indicator */}
+                <div className="absolute top-2 left-2 flex items-center gap-2">
+                    <span className="text-sm">Wind:</span>
+                    <div className={`text-2xl transform ${wind.direction > 0 ? 'rotate-0' : 'rotate-180'}`}>
+                        {'💨'.repeat(Math.ceil(wind.strength * 5))}
                     </div>
-                )}
-                <div className="text-xl">Moves: {moves}</div>
-            </div>
+                </div>
 
-            <div className="grid grid-cols-6 gap-1 bg-pink-100 p-2 rounded-lg relative">
-                {grid.map((row, rowIndex) =>
-                    row.map((candy, colIndex) => {
-                        const isMatching = matching.has(`${rowIndex},${colIndex}`);
-                        const isFalling = falling.has(`${rowIndex},${colIndex}`);
-                        const isSwappingFrom = switching?.from.row === rowIndex && switching?.from.col === colIndex;
-                        const isSwappingTo = switching?.to.row === rowIndex && switching?.to.col === colIndex;
-                        
-                        let translateX = 0;
-                        let translateY = 0;
-                        
-                        if (isSwappingFrom) {
-                            translateX = switching.to.col - switching.from.col;
-                            translateY = switching.to.row - switching.from.row;
-                        } else if (isSwappingTo) {
-                            translateX = switching.from.col - switching.to.col;
-                            translateY = switching.from.row - switching.to.row;
-                        }
-
-                        return (
-                            <button
-                                key={`${rowIndex}-${colIndex}`}
-                                onClick={() => handleSelect(rowIndex, colIndex)}
-                                className={`w-12 h-12 flex items-center justify-center text-2xl
-                                    ${selected?.row === rowIndex && selected?.col === colIndex
-                                        ? 'bg-pink-200'
-                                        : 'bg-white'} 
-                                    ${isMatching ? 'animate-match' : ''}
-                                    ${isFalling ? 'animate-drop' : ''}
-                                    rounded`}
-                                style={{
-                                    transform: `
-                                        ${isSwappingFrom ? `translate(${(switching.to.col - switching.from.col) * 100}%, ${(switching.to.row - switching.from.row) * 100}%)` : ''}
-                                        ${isSwappingTo ? `translate(${(switching.from.col - switching.to.col) * 100}%, ${(switching.from.row - switching.to.row) * 100}%)` : ''}
-                                        ${isMatching ? 'scale(1.1)' : ''}
-                                    `,
-                                    transition: 'all 0.3s ease-in-out'
+                <div className="flex justify-center flex-wrap gap-2 px-2 mt-8">
+                    {candles.map((candle, index) => (
+                        <div key={index} className="relative">
+                            {/* Wind effect animation */}
+                            {blownOutCandles.includes(candle.id) && (
+                                <div className="absolute -right-4 top-0 animate-wind-blow z-5">
+                                    💨
+                                </div>
+                            )}
+                            
+                            <div 
+                                className="relative group"
+                                onClick={() => handleCandle(index)}
+                                onContextMenu={(e) => {
+                                    e.preventDefault();
+                                    handleLongPress(index);
+                                }}
+                                onTouchStart={() => {
+                                    candle.timer = setTimeout(() => handleLongPress(index), 500);
+                                }}
+                                onTouchEnd={() => {
+                                    if (candle.timer) clearTimeout(candle.timer);
                                 }}
                             >
-                                {candy}
-                            </button>
-                        );
-                    })
-                )}
 
-                {/* Game Over Overlay */}
-                {(gameOver && !isWon) && (
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-4 cursor-default">
-                        <div className="text-white text-2xl text-center">
-                            Game Over!
-                            <div className="text-lg mt-2">Score: {score}</div>
+                                {/* Candle container */}
+                                <div className={`w-14 h-20 relative transition-all duration-300
+                                    ${candle.lit ? 'scale-110' : 'scale-100 hover:scale-105'}
+                                    ${candle.required ? 'z-5' : ''}
+                                    ${blownOutCandles.includes(candle.id) ? 'animate-shake' : ''}`}
+                                >
+                                    {/* Candle body */}
+                                    <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-12 
+                                        ${candle.required ? 'bg-pink-200' : 'bg-white'} rounded`}
+                                    />
+                                    
+                                    {/* Flame */}
+                                    {candle.lit && (
+                                        <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
+                                            <div className="w-4 h-6 bg-yellow-500 rounded-full animate-flicker" />
+                                            <div className="w-2 h-2 bg-orange-500 rounded-full mx-auto -mt-1" />
+                                        </div>
+                                    )}
+
+                                    {/* Shield indicator */}
+                                    {candle.protected && (
+                                        <div className="absolute -top-3 -right-3 text-sm animate-bounce">
+                                            🛡️
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        <button
-                            onClick={initializeGrid}
-                            className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors"
+                    ))}
+                </div>
+            </div>
+
+            <style jsx>{`
+                @keyframes flicker {
+                    0%, 100% { transform: scale(1); }
+                    50% { transform: scale(1.1); }
+                }
+                .animate-flicker {
+                    animation: flicker 0.3s ease-in-out infinite;
+                }
+
+                @keyframes wind-blow {
+                    0% { 
+                        opacity: 0;
+                        transform: translateX(-10px);
+                    }
+                    20% { 
+                        opacity: 1;
+                    }
+                    100% { 
+                        opacity: 0;
+                        transform: translateX(20px);
+                    }
+                }
+                .animate-wind-blow {
+                    animation: wind-blow 1s ease-out forwards;
+                }
+                
+            `}</style>
+
+            <div className="mt-6 text-center space-y-2">
+                <p className="text-sm text-gray-600">
+                    {gameOver ? (
+                        <button 
+                            onClick={() => initializeLevel()} 
+                            className="px-4 py-2 bg-pink-400 text-white rounded-full"
                         >
                             Try Again
                         </button>
-                    </div>
-                )}
-
-                {/* Existing no moves overlay */}
-                {!hasValidMoves(grid) && !gameOver && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <div className="text-white text-xl animate-bounce">
-                            Reshuffling...
-                        </div>
-                    </div>
-                )}
+                    ) : (
+                        <>
+                            Tap to light candles
+                            <br />
+                            Tap on a lit candle to protect it (costs 2 matches)
+                            <br />
+                            <span className="text-pink-500">Light all pink candles to advance!</span>
+                        </>
+                    )}
+                </p>
             </div>
-
-            <style jsx global>{`
-                @keyframes match {
-                    0% { transform: scale(1); opacity: 1; }
-                    50% { transform: scale(1.2); opacity: 0.8; }
-                    100% { transform: scale(1); opacity: 1; }
-                }
-                .animate-match {
-                    animation: match 0.3s ease-in-out;
-                }
-                
-                @keyframes drop {
-                    0% { transform: translateY(-100%); opacity: 0; }
-                    60% { transform: translateY(10%); opacity: 1; }
-                    100% { transform: translateY(0); opacity: 1; }
-                }
-                .animate-drop {
-                    animation: drop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-                }
-            `}</style>
-
-            <p className="mt-4 text-gray-600 text-center text-sm sm:text-base">
-                Match 3 or more candies in a row!
-                <br />
-                Click two adjacent candies to swap them.
-            </p>
 
             {isWon && <Success rewardType={journey.rewardType} reward={reward} loading={isUnlocking}/>}
         </div>

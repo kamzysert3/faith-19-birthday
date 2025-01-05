@@ -13,6 +13,7 @@ export default function Journey5({ journey, reward, progress }) {
     const [activeIndex, setActiveIndex] = useState(-1);
     const [isWrong, setIsWrong] = useState(false);
     const [wrongSequence, setWrongSequence] = useState([]);
+    const [gameStarted, setGameStarted] = useState(false);
 
     const colors = [
         { name: 'pink', bg: 'bg-pink-400', text: 'text-pink-400' },
@@ -74,8 +75,13 @@ export default function Journey5({ journey, reward, progress }) {
     };
 
     useEffect(() => {
-        startNewRound();
+        generateBalloons();
     }, []);
+
+    const startLevel = () => {
+        setGameStarted(true);
+        startNewRound();
+    };
 
     const handleBalloonClick = (balloon) => {
         if (balloon.isPopped || showingSequence) return;
@@ -178,6 +184,15 @@ export default function Journey5({ journey, reward, progress }) {
                     </button>
                 ))}
             </div>
+
+            {!gameStarted && (
+                <button
+                    onClick={startLevel}
+                    className="px-4 py-2 mt-8 bg-pink-500 text-white rounded-full hover:bg-pink-600"
+                >
+                    Start Game
+                </button>
+            )}
 
             <p className="mt-6 text-gray-600 text-center text-sm sm:text-base">
                 {showingSequence 

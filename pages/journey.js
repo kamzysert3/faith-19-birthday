@@ -91,7 +91,7 @@ export default function Journey () {
                 <div className="flex items-center justify-center">
                     <h2 className="text-2xl text-gray-400 animate-pulse">Loading...</h2>
                 </div>
-            ) : JourneyComponent ? !isLocked ? (
+            ) : JourneyComponent ? isLocked ? (
                 <div className="flex flex-col items-center justify-center w-1/2 bg-gray-50 text-pink rounded shadow">
                     <div className="p-5 text-xl text-center">
                         <h2 className="font-semibold">Locked Journey</h2>

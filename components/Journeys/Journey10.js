@@ -1,231 +1,274 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Unlock } from '@/lib/unlock';
 import Success from '../success';
 
-export default function Journey10({ journey, reward, progress }) {
-    const [grid, setGrid] = useState([]);
+export default function Journey6({ journey, reward, progress }) {
     const [score, setScore] = useState(0);
     const [isWon, setIsWon] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
-    const [selected, setSelected] = useState([]);
-    const [animations, setAnimations] = useState(new Set());
-    const [moves, setMoves] = useState(20);
-    const [gameOver, setGameOver] = useState(false);
-
-    const GRID_SIZE = 8;
-    const REQUIRED_SCORE = 1000; // Increased from 300
-    const INITIAL_MOVES = 20;
-    const BALLOONS = ['🎈', '🎁', '🎂', '🎉', '🎊'];
+    const [balloons, setBalloons] = useState([]);
+    const [arrow, setArrow] = useState(null);
+    const [multiplier, setMultiplier] = useState(1);
+    const [combo, setCombo] = useState(0);
+    const [lastHit, setLastHit] = useState(0);
+    const canvasRef = useRef(null);
+    const frameRef = useRef(null);
+    const containerWidth = useRef(0);
+    const isVisibleRef = useRef(true);
+    const spawnIntervalRef = useRef(null);
 
     useEffect(() => {
-        initializeGrid();
+        // Get and store container width
+        if (canvasRef.current) {
+            containerWidth.current = canvasRef.current.offsetWidth;
+        }
     }, []);
 
-    const initializeGrid = () => {
-        const newGrid = Array(GRID_SIZE).fill().map(() =>
-            Array(GRID_SIZE).fill().map(() =>
-                BALLOONS[Math.floor(Math.random() * BALLOONS.length)]
-            )
-        );
-        setGrid(newGrid);
-        setScore(0);
-        setMoves(INITIAL_MOVES);
-        setGameOver(false);
-        setAnimations(new Set());
+    const spawnBalloon = () => {
+        if (isWon) return;
+        
+        const types = {
+            normal: { emoji: '🎈', points: 1, speed: 2 },
+            special: { emoji: '🎁', points: 2, speed: 3 },
+            golden: { emoji: '🎊', points: 3, speed: 4 },
+            bomb: { emoji: '💣', points: -2, speed: 2.5 }
+        };
+
+        // Determine balloon type based on probabilities
+        const rand = Math.random();
+        const type = rand < 0.6 ? 'normal' :
+                    rand < 0.8 ? 'special' :
+                    rand < 0.9 ? 'golden' : 'bomb';
+
+        const size = type === 'golden' ? 50 : 40;
+        const safeArea = containerWidth.current - size * 2; // Account for balloon size
+        const spawnX = Math.random() * safeArea + size; // Spawn within safe area
+
+        const balloon = {
+            id: Date.now(),
+            x: spawnX,
+            y: 600,
+            size,
+            speedY: types[type].speed,
+            speedX: (Math.random() - 0.5) * 3, // Horizontal movement
+            emoji: types[type].emoji,
+            points: types[type].points,
+            type,
+            bouncing: false // New property for bounce animation
+        };
+        setBalloons(prev => [...prev, balloon]);
     };
 
-    const hasValidMoves = (board) => {
-        if (!board || !Array.isArray(board) || board.length === 0) return false;
-
-        // Check every position for potential matches
-        for (let row = 0; row < GRID_SIZE; row++) {
-            if (!board[row]) continue;
-            for (let col = 0; col < GRID_SIZE; col++) {
-                if (!board[row][col]) continue;
-                const connected = findConnectedBalloons(row, col, board[row][col], new Set(), board);
-                if (connected.size >= 3) {
-                    return true;
-                }
+    useEffect(() => {
+        spawnIntervalRef.current = setInterval(spawnBalloon, 2000);
+        return () => {
+            if (spawnIntervalRef.current) {
+                clearInterval(spawnIntervalRef.current);
             }
-        }
-        return false;
-    };
+        };
+    }, [isWon]);
 
-    const findConnectedBalloons = (row, col, balloon, visited = new Set(), currentGrid = grid) => {
-        if (!currentGrid || !currentGrid[row] || !currentGrid[row][col]) return visited;
-        
-        const key = `${row},${col}`;
-        if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE || 
-            visited.has(key) || currentGrid[row][col] !== balloon) {
-            return visited;
-        }
+    const updateGame = () => {
+        if (!isVisibleRef.current) return;
 
-        visited.add(key);
+        // Update balloons with horizontal movement
+        setBalloons(prev => prev
+            .filter(balloon => balloon.y > -50)
+            .map(balloon => {
+                let newX = balloon.x + balloon.speedX;
+                let newSpeedX = balloon.speedX;
+                let isBouncing = balloon.bouncing;
 
-        // Check all 4 directions
-        findConnectedBalloons(row + 1, col, balloon, visited, currentGrid);
-        findConnectedBalloons(row - 1, col, balloon, visited, currentGrid);
-        findConnectedBalloons(row, col + 1, balloon, visited, currentGrid);
-        findConnectedBalloons(row, col - 1, balloon, visited, currentGrid);
+                // Calculate boundaries based on container width and balloon size
+                const leftBoundary = balloon.size;
+                const rightBoundary = containerWidth.current - balloon.size;
 
-        return visited;
-    };
+                // Boundary collision with bounce effect
+                if (newX <= leftBoundary || newX >= rightBoundary) {
+                    newSpeedX = -balloon.speedX;
+                    isBouncing = true;
+                    newX = newX <= leftBoundary ? leftBoundary : rightBoundary;
 
-    const reshuffleBoard = () => {
-        setAnimations(new Set());
-        
-        // Show reshuffling message
-        setGrid(prev => {
-            // Create new grid and validate it has possible moves
-            let newGrid;
-            do {
-                newGrid = Array(GRID_SIZE).fill().map(() =>
-                    Array(GRID_SIZE).fill().map(() =>
-                        BALLOONS[Math.floor(Math.random() * BALLOONS.length)]
-                    )
-                );
-            } while (!hasValidMoves(newGrid));
-            
-            return newGrid;
-        });
-    };
+                    // Reset bounce animation after delay
+                    setTimeout(() => {
+                        setBalloons(current => 
+                            current.map(b => 
+                                b.id === balloon.id ? { ...b, bouncing: false } : b
+                            )
+                        );
+                    }, 200);
+                }
 
-    const handleBalloonClick = (row, col) => {
-        if (moves <= 0 || gameOver) return;
-        
-        const balloon = grid[row][col];
-        const connected = findConnectedBalloons(row, col, balloon);
+                return {
+                    ...balloon,
+                    x: newX,
+                    y: balloon.y - balloon.speedY,
+                    speedX: newSpeedX,
+                    bouncing: isBouncing
+                };
+            })
+        );
 
-        if (connected.size >= 3) {
-            setMoves(prev => prev - 1);
-            // Start pop animation
-            setAnimations(connected);
-
-            setTimeout(() => {
-                // Update score
-                const points = connected.size * 10;
-                setScore(prev => {
-                    const newScore = prev + points;
-                    if (newScore >= REQUIRED_SCORE && !isWon) {
-                        setIsWon(true);
-                        setIsUnlocking(true);
-                        Unlock(progress, journey.rewardType, reward._id)
-                            .then(success => {
-                                if (success) setIsUnlocking(false);
-                            });
-                    }
-                    return newScore;
-                });
-
-                // Remove popped balloons and shift remaining down
-                const newGrid = grid.map(row => [...row]);
+        // Update arrow if exists
+        if (arrow) {
+            setArrow(prev => {
+                if (!prev) return null;
                 
-                // Remove popped balloons (replace with null)
-                connected.forEach(pos => {
-                    const [r, c] = pos.split(',').map(Number);
-                    newGrid[r][c] = null;
-                });
+                // Check balloon collisions
+                const hit = balloons.find(balloon => 
+                    Math.hypot(balloon.x - prev.x, balloon.y - prev.y) < balloon.size/2
+                );
 
-                // Shift balloons down
-                for (let col = 0; col < GRID_SIZE; col++) {
-                    let writePos = GRID_SIZE - 1;
-                    for (let row = GRID_SIZE - 1; row >= 0; row--) {
-                        if (newGrid[row][col] !== null) {
-                            newGrid[writePos][col] = newGrid[row][col];
-                            if (writePos !== row) {
-                                newGrid[row][col] = null;
-                            }
-                            writePos--;
+                if (hit) {
+                    setBalloons(prev => prev.filter(b => b.id !== hit.id));
+                    
+                    // Handle combo system
+                    const now = Date.now();
+                    if (now - lastHit < 1000 && hit.type !== 'bomb') {
+                        setCombo(prev => Math.min(prev + 1, 5));
+                    } else {
+                        setCombo(hit.type === 'bomb' ? 0 : 1);
+                    }
+                    setLastHit(now);
+
+                    setScore(() => {
+                        const points = hit.points * (hit.type === 'golden' ? multiplier : 1);
+                        const newScore = Math.max(0, score + points * combo);
+                        if (newScore >= 30 && !isWon) {
+                            setIsWon(true);
+                            setIsUnlocking(true);
+                            Unlock(progress, journey.rewardType, reward._id)
+                                .then(success => {
+                                    if (success) setIsUnlocking(false);
+                                });
                         }
+                        return newScore;
+                    });
+
+                    // Special effects for golden balloons
+                    if (hit.type === 'golden') {
+                        setMultiplier(prev => prev + 0.5);
+                        setTimeout(() => setMultiplier(1), 5000);
                     }
-                    // Fill empty spaces with new balloons
-                    for (let row = writePos; row >= 0; row--) {
-                        newGrid[row][col] = BALLOONS[Math.floor(Math.random() * BALLOONS.length)];
-                    }
+
+                    return null;
                 }
 
-                setGrid(newGrid);
-                setAnimations(new Set());
+                // Remove arrow if off screen
+                if (prev.y < -20) return null;
 
-                // Check if the new board has any valid moves
-                setTimeout(() => {
-                    if (!hasValidMoves(newGrid)) {
-                        reshuffleBoard();
-                    }
-                }, 500);
-
-                // Check if out of moves
-                if (moves - 1 <= 0 && score < REQUIRED_SCORE) {
-                    setGameOver(true);
-                }
-            }, 300);
+                return {
+                    ...prev,
+                    y: prev.y - 10
+                };
+            });
         }
+
+        frameRef.current = requestAnimationFrame(updateGame);
+    };
+
+    useEffect(() => {
+        frameRef.current = requestAnimationFrame(updateGame);
+        return () => cancelAnimationFrame(frameRef.current);
+    }, [arrow]);
+
+    // Add visibility change handler
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            isVisibleRef.current = document.visibilityState === 'visible';
+            
+            if (!isVisibleRef.current) {
+                // Clear all animations and balloons when tab is hidden
+                if (frameRef.current) {
+                    cancelAnimationFrame(frameRef.current);
+                }
+                if (spawnIntervalRef.current) {
+                    clearInterval(spawnIntervalRef.current);
+                }
+                setBalloons([]);
+            } else {
+                // Restart game loop when tab becomes visible
+                frameRef.current = requestAnimationFrame(updateGame);
+                spawnIntervalRef.current = setInterval(spawnBalloon, 2000);
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, []);
+
+    // Update container width on resize
+    useEffect(() => {
+        const handleResize = () => {
+            if (canvasRef.current) {
+                containerWidth.current = canvasRef.current.offsetWidth;
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    const handleClick = (e) => {
+        if (arrow || isWon) return;
+
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        setArrow({ x, y: 550 });
     };
 
     return (
-        <div className="flex flex-col items-center p-4 w-full max-w-lg mx-auto">
-            <div className="flex justify-between w-full mb-4">
-                <div className="text-xl">Score: {score}/{REQUIRED_SCORE}</div>
-                <div className="text-xl">Moves: {moves}</div>
+        <div className="flex flex-col items-center p-4 w-full max-w-lg mx-auto select-none">
+            <div className="flex justify-between w-full text-center">
+                <div className="text-xl">Score: {score < 30 ? score : 30}/30</div>
+                {combo > 1 && <div className="text-pink-500 font-bold">Combo x{combo}!</div>}
+                {multiplier > 1 && <div className="text-yellow-500 font-bold">✨ x{multiplier.toFixed(1)}</div>}
             </div>
 
-            <div className="grid grid-cols-8 gap-1 bg-pink-100 p-2 rounded-lg relative">
-                {grid.map((row, rowIndex) =>
-                    row.map((balloon, colIndex) => (
-                        <button
-                            key={`${rowIndex}-${colIndex}`}
-                            onClick={() => handleBalloonClick(rowIndex, colIndex)}
-                            className={`w-10 h-10 flex items-center justify-center text-2xl
-                                bg-white rounded transition-all duration-200
-                                ${animations.has(`${rowIndex},${colIndex}`) ? 'animate-pop' : ''}
-                                hover:scale-110 active:scale-95`}
-                        >
-                            {balloon}
-                        </button>
-                    ))
-                )}
-
-                {/* Add reshuffling overlay */}
-                {!hasValidMoves(grid) && !gameOver && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <div className="text-white text-xl animate-bounce">
-                            Reshuffling...
-                        </div>
+            <div 
+                ref={canvasRef}
+                onClick={handleClick}
+                className="relative w-full h-[370px] bg-gradient-to-b from-pink-50 to-pink-100 rounded-lg overflow-hidden cursor-crosshair"
+            >
+                {/* Balloons */}
+                {balloons.map(balloon => (
+                    <div
+                        key={balloon.id}
+                        className={`absolute transition-all duration-200
+                            ${balloon.bouncing ? 'scale-x-90 scale-y-110' : 'scale-100'}`}
+                        style={{
+                            left: `${balloon.x}px`,
+                            top: `${balloon.y}px`,
+                            fontSize: `${balloon.size}px`,
+                            transform: `translate(-50%, -50%) ${balloon.bouncing ? 'scale(0.9, 1.1)' : 'scale(1)'}`,
+                            transition: 'transform 0.2s ease-out'
+                        }}
+                    >
+                        {balloon.emoji}
                     </div>
-                )}
+                ))}
 
-                {/* Game Over Overlay */}
-                {(gameOver && !isWon) && (
-                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-4">
-                        <div className="text-white text-2xl text-center">
-                            Game Over!
-                            <div className="text-lg mt-2">Score: {score}</div>
-                        </div>
-                        <button
-                            onClick={initializeGrid}
-                            className="px-6 py-2 bg-pink-500 text-white rounded-full hover:bg-pink-600 transition-colors"
-                        >
-                            Try Again
-                        </button>
+                {/* Arrow */}
+                {arrow && (
+                    <div 
+                        className="absolute text-2xl"
+                        style={{
+                            left: arrow.x,
+                            top: arrow.y,
+                            transform: 'translate(-50%, -50%) rotate(-45deg)'
+                        }}
+                    >
+                        ➹
                     </div>
                 )}
             </div>
-
-            <style jsx global>{`
-                @keyframes pop {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.3); opacity: 0.5; }
-                    100% { transform: scale(0); opacity: 0; }
-                }
-                .animate-pop {
-                    animation: pop 0.3s ease-out forwards;
-                }
-            `}</style>
 
             <p className="mt-4 text-gray-600 text-center text-sm sm:text-base">
-                Click groups of 3 or more matching balloons to pop them!
+                🎈 = 1pt | 🎁 = 2pts | 🎊 = 3pts (with multiplier!) | 💣 = -2pts
                 <br />
-                Balloons must be connected horizontally or vertically.
+                Quick hits increase your combo! Golden balloons give score multiplier!
             </p>
 
             {isWon && <Success rewardType={journey.rewardType} reward={reward} loading={isUnlocking}/>}

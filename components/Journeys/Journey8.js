@@ -2,230 +2,210 @@ import { useState, useEffect } from 'react';
 import { Unlock } from '@/lib/unlock';
 import Success from '../success';
 
-export default function Journey8({ journey, reward, progress }) {
-    const [candles, setCandles] = useState([]);
-    const [matches, setMatches] = useState(15);
-    const [level, setLevel] = useState(1);
+export default function Journey13({ journey, reward, progress }) {
+    const [pattern, setPattern] = useState([]);
+    const [playerPattern, setPlayerPattern] = useState([]);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [failedStage, setFailedStage] = useState(false);
+    const [isShowingPattern, setIsShowingPattern] = useState(false);
+    const [stage, setStage] = useState(0);
     const [isWon, setIsWon] = useState(false);
     const [isUnlocking, setIsUnlocking] = useState(false);
-    const [wind, setWind] = useState({ direction: 1, strength: 0 });
-    const [blownOutCandles, setBlownOutCandles] = useState([]);
-    const [gameOver, setGameOver] = useState(false);
+    const [mistakes, setMistakes] = useState(0);
+    const [timeLeft, setTimeLeft] = useState(null);
+    
+    const gridSize = 9; // 3x3 grid
+    const maxStages = 5;
+    const maxMistakes = 2;
 
-    const initializeLevel = () => {
-        const candleCount = 4 + level;
-        const newCandles = Array(candleCount).fill(null).map((_, index) => ({
-            id: index,
-            lit: false,
-            required: index < level + 2,
-            protected: false,
-            position: index
-        }));
-        setCandles(newCandles.sort(() => Math.random() - 0.5));
-        setWind({ direction: Math.random() > 0.5 ? 1 : -1, strength: level * 0.25 });
-        setMatches(3 * ((level + 2) - 1)); // Reset matches when initializing level
-        setGameOver(false);
+    const generatePattern = (length) => { 
+        console.log(length, Array(length).fill(0).map(() => Math.floor(Math.random() * gridSize)));
+               
+        return Array(length).fill(0).map(() => Math.floor(Math.random() * gridSize));
+    };
+
+    const calculateTimeForStage = (patternLength, stageNum) => {
+        // Base time: 3 seconds per element, decreasing with stage
+        const timePerElement = 3000 - (stageNum * 200);
+        return Math.max(patternLength * timePerElement, patternLength * 1500); // Minimum 1.5s per element
+    };
+
+    const startStage = async () => {
+        const buttons = document.querySelectorAll('.seq');
+        buttons.forEach(button => button.innerHTML = '');
+
+        setIsShowingPattern(true);
+        setPlayerPattern([]);
+        setFailedStage(false);
+
+        // Calculate pattern length based on stage (3 for stage 1, +1 each stage)
+        console.log(stage);
+        
+        const patternLength = Math.min(2 + stage, 7); // Cap at 7 elements
+        console.log(patternLength);
+        
+        const newPattern = generatePattern(patternLength);
+        setPattern(newPattern);
+
+        const displayTime = Math.max(1000 - (stage * 50), 600); // Minimum 600ms display
+        const pauseTime = 400; // Consistent pause between elements
+
+        try {
+            for (const tile of newPattern) {
+                await new Promise(resolve => {
+                    const button = document.querySelector(`[data-index="${tile}"]`);
+                    if (!button) throw new Error('Button not found');
+                    
+                    button.classList.add("bg-purple-600");
+                    setTimeout(() => {
+                        button.classList.remove("bg-purple-600");
+                        resolve();
+                    }, displayTime);
+                });
+                await new Promise(resolve => setTimeout(resolve, pauseTime));
+            }
+
+            setIsShowingPattern(false);
+            setIsPlaying(true);
+            setTimeLeft(calculateTimeForStage(patternLength, stage));
+        } catch (error) {
+            console.error('Error in pattern display:', error);
+            setMistakes(prev => prev + 1);
+            setFailedStage(true);
+        }
     };
 
     useEffect(() => {
-        initializeLevel();
-    }, [level]);
-
-    const lightCandle = (candleIndex) => {
-        if (matches <= 0) return;
-
-        setMatches(prev => prev - 1);
-        const newCandles = [...candles];
+        if (timeLeft === null || !isPlaying) return;
         
-        // Light selected candle
-        newCandles[candleIndex].lit = true;
-        
-        // Wind effects
-        if (Math.random() < wind.strength) {
-            // Wind can blow out nearby candles EXCEPT the one just lit
-            const affected = newCandles.filter(c => 
-                Math.abs(c.position - newCandles[candleIndex].position) <= 1 &&
-                c.lit &&
-                !c.protected &&
-                newCandles.indexOf(c) !== candleIndex  // Don't affect the candle being lit
-            );
-            
-            // Show wind effect for affected candles
-            setBlownOutCandles(affected.map(c => c.id));
-            setTimeout(() => setBlownOutCandles([]), 1000);
-
-            affected.forEach(c => c.lit = false);
-        }
-
-        setCandles(newCandles);
-
-        // Check win condition
-        setTimeout(() => {
-            const allRequired = newCandles.every(c => !c.required || c.lit);
-            if (allRequired) {
-                if (level >= 3) {
-                    setIsWon(true);
-                    setIsUnlocking(true);
-                    Unlock(progress, journey.rewardType, reward._id)
-                        .then(success => {
-                            if (success) setIsUnlocking(false);
-                        });
-                } else {
-                    setLevel(prev => prev + 1);
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                if (prev <= 0) {
+                    setIsPlaying(false);
+                    setMistakes(prev => prev + 1);
+                    return null;
                 }
-            } else {                
-                if ((matches - 1) === 0) setGameOver(true);
-            }
-        }, 500)
-    };
+                return prev - 10;
+            });
+        }, 10);
 
-    const protectCandle = (index) => {
-        if (matches < 2) return; // Costs 2 matches to protect
-        setMatches(prev => {
-            if (prev - 2 === 0) setGameOver(true);
-            return prev - 2
-        });
-        setCandles(prev => prev.map((c, i) => 
-            i === index ? { ...c, protected: true } : c
-        ));
-    };
+        return () => clearInterval(timer);
+    }, [timeLeft, isPlaying]);
 
-    const handleCandle = (index) => {
-        // Handle both click and touch
-        if (matches <= 0) return;
-
-        // First click/tap lights the candle
-        if (!candles[index].lit) {
-            lightCandle(index);
-        } else if (!candles[index].protected) {
-            // Long press/right click to protect lit candles
-            protectCandle(index);
+    // Add new useEffect to watch stage changes
+    useEffect(() => {
+        if (stage > 0) {
+            startStage();
         }
-    };
+    }, [stage]);
 
-    const handleLongPress = (index) => {
-        if (!candles[index].lit || candles[index].protected) return;
-        protectCandle(index);
+    const handleTileClick = async (index) => {
+        if (!isPlaying || isShowingPattern) return;
+
+        const newPlayerPattern = [...playerPattern, index];
+        setPlayerPattern(newPlayerPattern);
+
+        const button = document.querySelector(`[data-index="${index}"]`);
+        
+        // Check if wrong tile was clicked
+        if (pattern[playerPattern.length] !== index) {
+            if (button) button.innerHTML = '❌';
+            setIsPlaying(false);
+            setFailedStage(true);
+            setMistakes(prev => prev + 1);
+            return;
+        }
+
+        // Visual feedback for correct click
+        if (button) {
+            button.classList.add('bg-purple-600');
+        }
+
+        // Check if pattern is complete
+        if (newPlayerPattern.length === pattern.length) {
+            setIsPlaying(false);
+            if (stage === maxStages) {
+                setIsWon(true);
+                setIsUnlocking(true);
+                const unlocked = await Unlock(progress, journey.rewardType, reward._id);
+                if (unlocked) setIsUnlocking(false);
+            }
+        }
     };
 
     return (
-        <div className="flex flex-col items-center p-4 w-full max-w-lg mx-auto select-none">
-            <div className="text-xl mb-4">Level {level} - Matches: {matches}</div>
-            
-            <div className="relative w-full bg-gradient-to-b from-pink-50 to-pink-100 p-6 rounded-lg">
-                {/* Wind indicator */}
-                <div className="absolute top-2 left-2 flex items-center gap-2">
-                    <span className="text-sm">Wind:</span>
-                    <div className={`text-2xl transform ${wind.direction > 0 ? 'rotate-0' : 'rotate-180'}`}>
-                        {'💨'.repeat(Math.ceil(wind.strength * 5))}
+        <div className="flex flex-col items-center p-4">
+            <div className="mb-4 flex flex-col w-full items-center justify-center text-center">
+                <div className='flex justify-between w-full'>
+                    <p className="text-xl">Stage {stage === 0 ? 1 : stage}/{maxStages}</p>
+                    <p className="text-red-500">Mistakes: {mistakes}/{maxMistakes}</p>
+                </div>
+                {timeLeft !== null && (
+                    <div className="w-full max-w-xs bg-gray-200 h-2 rounded-full mt-2 overflow-hidden">
+                        <div 
+                            className="h-full bg-pink-500 rounded-full transition-all duration-10"
+                            style={{ 
+                                width: `${Math.min((timeLeft / calculateTimeForStage(pattern.length, stage)) * 100, 100)}%` 
+                            }}
+                        />
                     </div>
-                </div>
-
-                <div className="flex justify-center flex-wrap gap-2 px-2 mt-8">
-                    {candles.map((candle, index) => (
-                        <div key={index} className="relative">
-                            {/* Wind effect animation */}
-                            {blownOutCandles.includes(candle.id) && (
-                                <div className="absolute -right-4 top-0 animate-wind-blow z-5">
-                                    💨
-                                </div>
-                            )}
-                            
-                            <div 
-                                className="relative group"
-                                onClick={() => handleCandle(index)}
-                                onContextMenu={(e) => {
-                                    e.preventDefault();
-                                    handleLongPress(index);
-                                }}
-                                onTouchStart={() => {
-                                    candle.timer = setTimeout(() => handleLongPress(index), 500);
-                                }}
-                                onTouchEnd={() => {
-                                    if (candle.timer) clearTimeout(candle.timer);
-                                }}
-                            >
-
-                                {/* Candle container */}
-                                <div className={`w-14 h-20 relative transition-all duration-300
-                                    ${candle.lit ? 'scale-110' : 'scale-100 hover:scale-105'}
-                                    ${candle.required ? 'z-5' : ''}
-                                    ${blownOutCandles.includes(candle.id) ? 'animate-shake' : ''}`}
-                                >
-                                    {/* Candle body */}
-                                    <div className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 w-4 h-12 
-                                        ${candle.required ? 'bg-pink-200' : 'bg-white'} rounded`}
-                                    />
-                                    
-                                    {/* Flame */}
-                                    {candle.lit && (
-                                        <div className="absolute bottom-12 left-1/2 transform -translate-x-1/2">
-                                            <div className="w-4 h-6 bg-yellow-500 rounded-full animate-flicker" />
-                                            <div className="w-2 h-2 bg-orange-500 rounded-full mx-auto -mt-1" />
-                                        </div>
-                                    )}
-
-                                    {/* Shield indicator */}
-                                    {candle.protected && (
-                                        <div className="absolute -top-3 -right-3 text-sm animate-bounce">
-                                            🛡️
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                )}
             </div>
 
-            <style jsx>{`
-                @keyframes flicker {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.1); }
-                }
-                .animate-flicker {
-                    animation: flicker 0.3s ease-in-out infinite;
-                }
-
-                @keyframes wind-blow {
-                    0% { 
-                        opacity: 0;
-                        transform: translateX(-10px);
-                    }
-                    20% { 
-                        opacity: 1;
-                    }
-                    100% { 
-                        opacity: 0;
-                        transform: translateX(20px);
-                    }
-                }
-                .animate-wind-blow {
-                    animation: wind-blow 1s ease-out forwards;
-                }
-                
-            `}</style>
-
-            <div className="mt-6 text-center space-y-2">
-                <p className="text-sm text-gray-600">
-                    {gameOver ? (
-                        <button 
-                            onClick={() => initializeLevel()} 
-                            className="px-4 py-2 bg-pink-400 text-white rounded-full"
-                        >
-                            Try Again
-                        </button>
-                    ) : (
-                        <>
-                            Tap to light candles
-                            <br />
-                            Tap on a lit candle to protect it (costs 2 matches)
-                            <br />
-                            <span className="text-pink-500">Light all pink candles to advance!</span>
-                        </>
-                    )}
-                </p>
+            <div className="grid grid-cols-3 gap-2 bg-purple-100 p-2 rounded-lg">
+                {Array(gridSize).fill(null).map((_, index) => (
+                    <button
+                        key={index}
+                        data-index={index}
+                        onClick={() => handleTileClick(index)}
+                        disabled={!isPlaying || isShowingPattern}
+                        className={`seq w-16 h-16 sm:w-20 sm:h-20 
+                            rounded-lg transition-all duration-300 ease-in-out
+                            flex items-center justify-center text-2xl
+                            ${isPlaying ? 'bg-purple-200 hover:bg-purple-300' : 'bg-purple-200'}
+                            ${playerPattern.includes(index) ? 'bg-purple-600' : ''}
+                            transform hover:scale-105 active:scale-95
+                        `}
+                    />
+                ))}
             </div>
+
+            {mistakes >= maxMistakes ? (
+                <div className="text-center mt-4">
+                    <p className="text-red-500 mb-2">Game Over!</p>
+                    <button 
+                        onClick={() => {
+                            setMistakes(0);
+                            setPattern([]);
+                            setStage(1);
+                        }}
+                        className="px-4 py-2 bg-purple-500 text-white rounded-lg"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            ) : !isPlaying && !isShowingPattern && !isWon ? (
+                <button
+                    onClick={() => {
+                        if (!failedStage) {
+                            setStage(prev => prev + 1);
+                        } else {
+                            startStage();
+                        }
+                    }}
+                    className="px-4 py-2 bg-purple-500 text-white rounded-lg mt-4"
+                >
+                    {stage === 0 ? 'Start Game' 
+                    : failedStage ? 'Try Again' 
+                    : 'Next Pattern'}
+                </button>
+            ) : null}
+
+            <p className="mt-4 text-gray-600 font-bold">
+                {isShowingPattern ? '👀 Watch carefully!' : 
+                 isPlaying ? '🎯 Repeat the pattern!' : 
+                 ''}
+            </p>
 
             {isWon && <Success rewardType={journey.rewardType} reward={reward} loading={isUnlocking}/>}
         </div>
