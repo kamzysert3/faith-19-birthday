@@ -6,7 +6,7 @@ import { Stories } from "@/models/Stories";
 export default async function handler(req, res) {
     await mongooseConnect();
     if (req.query?.id) {        
-        const journey = await Journey.find();
+        const journey = await Journey.find().sort({ id: 1 });
         if (!journey) return res.status(404).json({ error: "Journey not found" });
         
         const RequestedJourney = journey[req.query.id];
@@ -27,6 +27,6 @@ export default async function handler(req, res) {
             reward: RequestedJourneyReward,
         });
     } else {
-        res.status(200).json( await Journey.find() );
+        res.status(200).json( await Journey.find().sort({ id: 1 }) );
     }
 }

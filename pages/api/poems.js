@@ -12,6 +12,6 @@ export default async function handler(req, res) {
         if (!unlockedPoem) return res.status(200).json("Locked");
         return res.status(200).json(poem);
     } else {
-        res.status(200).json( await Poems.find() );
+        res.status(200).json( await Poems.find().sort({ id: 1 }) );
     }
 }

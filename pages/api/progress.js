@@ -45,7 +45,7 @@ export default async function handler(req, res) {
             return res.status(200).json(unlockedStories.unlockedStory);
         } else if (req.query?.items == "journey") {
             const progressBar = await Progress.findOne()  
-            const JourneyProgress = await Journey.find()
+            const JourneyProgress = await Journey.find().sort({ id: 1 })
             if (typeof progressBar.progressBar !== "number" || progressBar.progressBar < 0) {
                 return res.status(400).json({ error: "Invalid progress bar value" });
             }             
