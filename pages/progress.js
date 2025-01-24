@@ -23,6 +23,7 @@ export default function ProgressPage() {
          .then(res => setJourneys(res.data))
          .catch(err => console.error(err));
     }
+    const unlockedJourneyIds = unlockedJourney.map(journey => journey._id);    
     return(
         <main className="min-h-screen flex flex-col p-3 justify-center bg-gradient-to-b from-rose-100 to-pink-200 px-5">
             <Link href={'/'} className="text-xl bg-pink-500 p-3 rounded-full absolute top-5 left-5 text-white">
@@ -42,7 +43,7 @@ export default function ProgressPage() {
             {journeys.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mt-8">
                     {journeys.length > 0 && journeys.map(journey => (
-                        <JourneyBox key={journey._id} journey={journey} unlockedJourney={unlockedJourney}/>
+                        <JourneyBox key={journey._id} journey={journey} unlockedJourneyIds={unlockedJourneyIds}/>
                     ))}
                 </div>
             )}

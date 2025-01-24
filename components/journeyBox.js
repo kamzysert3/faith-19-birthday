@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function JourneyBox ({ journey, unlockedJourney }) {
-    const unlockedJourneyIds = unlockedJourney.map(journey => journey._id);
+export default function JourneyBox ({ journey, unlockedJourneyIds }) {
     const isUnlocked = unlockedJourneyIds.includes(journey._id);
 
     return isUnlocked ? (
