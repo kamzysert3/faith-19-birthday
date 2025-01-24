@@ -1,16 +1,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function PoemBox ({ poem }) {
-    const [unlockedPoems, setUnlockedPoems] = useState([]);
-    useEffect(() => {
-        fetchUnlockedPoems();
-    }, [])
-    async function fetchUnlockedPoems() {
-        const response = await fetch('/api/progress?items=poems');
-        const data = await response.json();        
-        setUnlockedPoems(data);
-    }
+export default function PoemBox ({ poem, unlockedPoems }) {
+   
     const isUnlocked =  unlockedPoems.includes(poem._id);
 
     return isUnlocked ? (

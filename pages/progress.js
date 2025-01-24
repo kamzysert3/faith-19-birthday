@@ -5,6 +5,16 @@ import { useEffect, useState } from "react";
 
 export default function ProgressPage() {
     const [journeys, setJourneys] = useState([])
+    const [unlockedJourney, setUnlockedJourney] = useState([]);
+
+    useEffect(() => {
+        fetchUnlockedJourney();
+    }, [])
+    async function fetchUnlockedJourney() {
+        const response = await fetch('/api/progress?items=journey');
+        const data = await response.json();        
+        setUnlockedJourney(data);
+    }    
     useEffect(() => {
         fetchJourneys();
     }, [])
@@ -32,7 +42,7 @@ export default function ProgressPage() {
             {journeys.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mt-8">
                     {journeys.length > 0 && journeys.map(journey => (
-                        <JourneyBox key={journey._id} journey={journey} />
+                        <JourneyBox key={journey._id} journey={journey} unlockedJourney={unlockedJourney}/>
                     ))}
                 </div>
             )}

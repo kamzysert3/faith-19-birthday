@@ -5,6 +5,16 @@ import { useEffect, useState } from "react";
 
 export default function PoemPage () {
     const [poems, setPoems] = useState([])
+    const [unlockedPoems, setUnlockedPoems] = useState([]);
+
+    useEffect(() => {
+        fetchUnlockedPoems();
+    }, [])
+    async function fetchUnlockedPoems() {
+        const response = await fetch('/api/progress?items=poems');
+        const data = await response.json();        
+        setUnlockedPoems(data);
+    }
     useEffect(() => {
         fetchPoems();
     }, [])
@@ -31,7 +41,7 @@ export default function PoemPage () {
             {poems.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mt-8">
                     {poems.length > 0 && poems.map(poem => (
-                        <PoemBox key={poem._id} poem={poem} />
+                        <PoemBox key={poem._id} poem={poem} unlockedPoems={unlockedPoems} />
                     ))}
                 </div>
             )}

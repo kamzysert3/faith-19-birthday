@@ -1,16 +1,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function StoryBox ({ story }) {
-    const [unlockedStories, setUnlockedStories] = useState([]);
-    useEffect(() => {
-        fetchUnlockedStories();
-    }, [])
-    async function fetchUnlockedStories() {
-        const response = await fetch('/api/progress?items=stories');
-        const data = await response.json();        
-        setUnlockedStories(data);
-    }
+export default function StoryBox ({ story, unlockedStories }) {
+    
     const isUnlocked =  unlockedStories.includes(story._id);
 
     return isUnlocked ? (

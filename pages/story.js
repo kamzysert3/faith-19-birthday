@@ -5,6 +5,17 @@ import { useEffect, useState } from "react";
 
 export default function StoryPage () {
     const [stories, setStories] = useState([])
+    const [unlockedStories, setUnlockedStories] = useState([]);
+
+    useEffect(() => {
+        fetchUnlockedStories();
+    }, [])
+    async function fetchUnlockedStories() {
+        const response = await fetch('/api/progress?items=stories');
+        const data = await response.json();        
+        setUnlockedStories(data);
+    }
+    
     useEffect(() => {
         fetchStories();
     }, [])
@@ -31,7 +42,7 @@ export default function StoryPage () {
             {stories.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-8 mt-8">
                     {stories.length > 0 && stories.map(story => (
-                        <StoryBox key={story._id} story={story} />
+                        <StoryBox key={story._id} story={story} unlockedStories={unlockedStories} />
                     ))}
                 </div>
             )}

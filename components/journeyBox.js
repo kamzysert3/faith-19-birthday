@@ -1,16 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-export default function JourneyBox ({ journey }) {
-    const [unlockedJourney, setUnlockedJourney] = useState([]);
-    useEffect(() => {
-        fetchUnlockedJourney();
-    }, [])
-    async function fetchUnlockedJourney() {
-        const response = await fetch('/api/progress?items=journey');
-        const data = await response.json();        
-        setUnlockedJourney(data);
-    }    
+export default function JourneyBox ({ journey, unlockedJourney }) {
     const unlockedJourneyIds = unlockedJourney.map(journey => journey._id);
     const isUnlocked = unlockedJourneyIds.includes(journey._id);
 
